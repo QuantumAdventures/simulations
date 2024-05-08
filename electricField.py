@@ -29,7 +29,7 @@ def symLaguerre(l,p):
 
 def symHermite(n,m):
     
-    C = sym.sqrt(2/(sym.pi*np.math.factorial(n)*np.math.factorial(m)*2**(n+m)))
+    C = sym.sqrt(2/(sym.pi*np.math.factorial(n)*np.math.factorial(m)*2**(n+m))) #https://jcmwave.com/docs/ParameterReference/0a2dd5b44fc46b68bd3c44031b2aecd4.html?version=4.4.0
     psi = (n+1)*sym.atan2(z,zR)
     E = (C/w)*sym.hermite(n,sym.sqrt(2)*x/w)*sym.hermite(m,sym.sqrt(2)*y/w)*sym.exp(-r**2/w**2 - 1j*(k*r**2/(2*R) + k*z - psi))
     
@@ -63,15 +63,19 @@ def superposition(mode,indices,coef):
                 
     return E
 
-mode = 'hermite'
-indices = [[1,1],[3,2]]
+def intensity(E):
+    
+    return sym.conjugate(E)*E
+
+mode = 'laguerre'
+indices = [[2,0],[-2,0]]
 coef = [1/np.sqrt(2),1/np.sqrt(2)]
 
 E = superposition(mode,indices,coef)
 
-func = sym.lambdify([x,y,z,w0,wl],sym.conjugate(E)*E)
+func = sym.lambdify([x,y,z,w0,wl],sym.simplify(sym.conjugate(E)*E))
 
-z = 0+1e-20
+z = 0
 w0 = 2000e-9
 wl = 1550e-9
 x = np.linspace(-5*w0,5*w0,1000)
