@@ -42,4 +42,11 @@ positions, velocities = simulation.rungeKutta(dt, steps, pos0, vel0, T0, pressur
 timeStamps = np.linspace(0,dt*steps,steps)
 plt.plot(timeStamps,positions[0,:])
 
+"""
+thing to do:
+    
+add the euler-maruyama
+add a PSD analysis to the example
+"""
+
 
