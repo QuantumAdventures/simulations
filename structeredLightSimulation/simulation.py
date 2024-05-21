@@ -28,10 +28,41 @@ class simulation():
         
         return gamma
     
-    # def eulerMaruyama():
-    #     return
+    def ode(self,x,y,z,v,k,NA,gamma,x0, y0):
+        
+        ode_1 = v
+        ode_2 = np.real(k(x = x,y = y, z = z, x0 = x0, y0 = y0, NA = NA, wl = self.particle.wavelength))/self.particle.massParticle - gamma*v
 
-    def rungeKutta(self, dt, steps, pos0, vel0, T0, pressure,P,NA, gamma = None):
+        return np.array((ode_1,ode_2))
+    
+    def eulerStep(self,pos,vel,dt,k_x,k_y,k_z,NA,gamma,sigma,x0,y0):
+        
+        x = pos[0]
+        y = pos[1]
+        z = pos[2]
+        
+        v_x = vel[0]
+        v_y = vel[1]
+        v_z = vel[2]
+        
+        k1_x = dt*self.ode(x,y,z,v_x,k_x,NA,gamma,x0,y0)
+        k1_y = dt*self.ode(x,y,z,v_y,k_y,NA,gamma,x0,y0)
+        k1_z = dt*self.ode(x,y,z,v_z,k_z,NA,gamma,x0,y0)
+        
+        
+        newPos = np.array((
+            (x + k1_x[0]),
+            (y + k1_y[0]),
+            (z + k1_z[0])))
+        
+        newVel = np.array((
+            (v_x + k1_x[1] + sigma*np.random.normal()),
+            (v_y + k1_y[1] + sigma*np.random.normal()),
+            (v_z + k1_z[1] + sigma*np.random.normal())))
+        
+        return newPos, newVel
+    
+    def eulerMaruyama(self, dt, steps, pos0, vel0, T0, pressure,P,NA, gamma = None, x0 = 0,y0 = 0):
         
         kB = 1.380649e-23
         c  = 299_792_458
@@ -60,7 +91,46 @@ class simulation():
         
         for i in range(1,steps):
             
-            newPos, newVel = self.rungeKuttaStep(positions[:,i-1],velocities[:,i-1],dt,k_x,k_y,k_z,NA,gamma,sigma)
+            newPos, newVel = self.eulerStep(positions[:,i-1],velocities[:,i-1],dt,k_x,k_y,k_z,NA,gamma,sigma,x0,y0)
+            positions[0,i] = newPos[0]
+            positions[1,i] = newPos[1]
+            positions[2,i] = newPos[2]
+            velocities[0,i] = newVel[0]
+            velocities[1,i] = newVel[1]
+            velocities[2,i] = newVel[2]
+            
+        return positions, velocities
+
+    def rungeKutta(self, dt, steps, pos0, vel0, T0, pressure,P,NA, gamma = None, x0 = 0,y0 = 0):
+        
+        kB = 1.380649e-23
+        c  = 299_792_458
+        e0 = 8.85e-12
+        powerNorm = 2*P/(c*e0)
+        
+        fieldGradient = self.structeredLight.gradient()
+        k_x = sym.lambdify(list(fieldGradient[0].free_symbols),powerNorm*np.real(self.particle.alpha_rad)*fieldGradient[0]/4)
+        k_y = sym.lambdify(list(fieldGradient[1].free_symbols),powerNorm*np.real(self.particle.alpha_rad)*fieldGradient[1]/4)
+        k_z = sym.lambdify(list(fieldGradient[2].free_symbols),powerNorm*np.real(self.particle.alpha_rad)*fieldGradient[2]/4)
+
+        if gamma == None:
+            
+            if pressure == 0:
+                gamma = 0
+            else:
+                gamma = self.gammaEnv(pressure,T0)
+        
+        sigma = np.sqrt(2*kB*T0*gamma*self.particle.massParticle)*np.sqrt(dt)/self.particle.massParticle
+        
+        positions  = np.zeros((3,steps))
+        velocities =  np.zeros((3,steps))
+        
+        positions[:,0] = pos0
+        velocities[:,0] = vel0
+        
+        for i in range(1,steps):
+            
+            newPos, newVel = self.rungeKuttaStep(positions[:,i-1],velocities[:,i-1],dt,k_x,k_y,k_z,NA,gamma,sigma,x0,y0)
             positions[0,i] = newPos[0]
             positions[1,i] = newPos[1]
             positions[2,i] = newPos[2]
@@ -70,14 +140,8 @@ class simulation():
             
         return positions, velocities
     
-    def ode(self,x,y,z,v,k,NA,gamma):
-        
-        ode_1 = v
-        ode_2 = np.real(k(x = x,y = y, z = z,NA = NA, wl = self.particle.wavelength))/self.particle.massParticle - gamma*v
-
-        return np.array((ode_1,ode_2))
     
-    def rungeKuttaStep(self,pos,vel,dt,k_x,k_y,k_z,NA,gamma,sigma):
+    def rungeKuttaStep(self,pos,vel,dt,k_x,k_y,k_z,NA,gamma,sigma,x0,y0):
         
         x = pos[0]
         y = pos[1]
@@ -87,21 +151,21 @@ class simulation():
         v_y = vel[1]
         v_z = vel[2]
         
-        k1_x = dt*self.ode(x,y,z,v_x,k_x,NA,gamma)
-        k1_y = dt*self.ode(x,y,z,v_y,k_y,NA,gamma)
-        k1_z = dt*self.ode(x,y,z,v_z,k_z,NA,gamma)
+        k1_x = dt*self.ode(x,y,z,v_x,k_x,NA,gamma,x0,y0)
+        k1_y = dt*self.ode(x,y,z,v_y,k_y,NA,gamma,x0,y0)
+        k1_z = dt*self.ode(x,y,z,v_z,k_z,NA,gamma,x0,y0)
         
-        k2_x = dt*self.ode(x+k1_x[0]/2,y+k1_y[0]/2,z+k1_z[0]/2,v_x+k1_x[1]/2,k_x,NA,gamma)
-        k2_y = dt*self.ode(x+k1_x[0]/2,y+k1_y[0]/2,z+k1_z[0]/2,v_y+k1_y[1]/2,k_y,NA,gamma)
-        k2_z = dt*self.ode(x+k1_x[0]/2,y+k1_y[0]/2,z+k1_z[0]/2,v_z+k1_z[1]/2,k_z,NA,gamma)
+        k2_x = dt*self.ode(x+k1_x[0]/2,y+k1_y[0]/2,z+k1_z[0]/2,v_x+k1_x[1]/2,k_x,NA,gamma,x0,y0)
+        k2_y = dt*self.ode(x+k1_x[0]/2,y+k1_y[0]/2,z+k1_z[0]/2,v_y+k1_y[1]/2,k_y,NA,gamma,x0,y0)
+        k2_z = dt*self.ode(x+k1_x[0]/2,y+k1_y[0]/2,z+k1_z[0]/2,v_z+k1_z[1]/2,k_z,NA,gamma,x0,y0)
         
-        k3_x = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_x+k2_x[1]/2,k_x,NA,gamma)
-        k3_y = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_y+k2_y[1]/2,k_y,NA,gamma)
-        k3_z = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_z+k2_z[1]/2,k_z,NA,gamma)
+        k3_x = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_x+k2_x[1]/2,k_x,NA,gamma,x0,y0)
+        k3_y = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_y+k2_y[1]/2,k_y,NA,gamma,x0,y0)
+        k3_z = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_z+k2_z[1]/2,k_z,NA,gamma,x0,y0)
         
-        k4_x = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_x+k3_x[1],k_x,NA,gamma)
-        k4_y = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_y+k3_y[1],k_y,NA,gamma)
-        k4_z = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_z+k3_z[1],k_z,NA,gamma)
+        k4_x = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_x+k3_x[1],k_x,NA,gamma,x0,y0)
+        k4_y = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_y+k3_y[1],k_y,NA,gamma,x0,y0)
+        k4_z = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_z+k3_z[1],k_z,NA,gamma,x0,y0)
         
         newPos = np.array((
             (x + (k1_x[0] + 2*k2_x[0] + 2*k3_x[0] + k4_x[0])/6),
