@@ -113,7 +113,7 @@ class structeredLight:
                     
                 else:
                     
-                    E_y = E_y + self.coefs_x[i]*self.symHermite(indice[0],indice[1],globalPhase)
+                    E_y = E_y + self.coefs_y[i]*self.symHermite(indice[0],indice[1],globalPhase)
                     
         return [E_x*self.polarizationVector[0],E_y*self.polarizationVector[1]]
     
