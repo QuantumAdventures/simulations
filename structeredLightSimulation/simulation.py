@@ -163,9 +163,9 @@ class simulation():
         k3_y = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_y+k2_y[1]/2,k_y,NA,gamma,x0,y0)
         k3_z = dt*self.ode(x+k2_x[0]/2,y+k2_y[0]/2,z+k2_z[0]/2,v_z+k2_z[1]/2,k_z,NA,gamma,x0,y0)
         
-        k4_x = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_x+k3_x[1],k_x,NA,gamma,x0,y0)
-        k4_y = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_y+k3_y[1],k_y,NA,gamma,x0,y0)
-        k4_z = dt*self.ode(x+k3_x[0],y+k3_y[0]/2,z+k3_z[0],v_z+k3_z[1],k_z,NA,gamma,x0,y0)
+        k4_x = dt*self.ode(x+k3_x[0],y+k3_y[0],z+k3_z[0],v_x+k3_x[1],k_x,NA,gamma,x0,y0)
+        k4_y = dt*self.ode(x+k3_x[0],y+k3_y[0],z+k3_z[0],v_y+k3_y[1],k_y,NA,gamma,x0,y0)
+        k4_z = dt*self.ode(x+k3_x[0],y+k3_y[0],z+k3_z[0],v_z+k3_z[1],k_z,NA,gamma,x0,y0)
         
         newPos = np.array((
             (x + (k1_x[0] + 2*k2_x[0] + 2*k3_x[0] + k4_x[0])/6),
