@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 from numba import njit
 import scipy.signal as signal
 
-radius = 150e-9
+radius = 70e-9
 kB = 1.380649e-23
-T0 = 300
+T0 = 293
 rho_SiO2 = 1850 # https://www.azom.com/properties.aspx?ArticleID=1387
 eta_air = 18.27e-6 # Pa # (J.T.R.Watson (1995)).
 d_gas = 0.372e-9 #m #(Sone (2007)), ρSiO2
-pressure = 1e-5 #mbar
+pressure = 1e-1 #mbar
 #Define the time-step of the numerical integration and the max. time of integration
 N = 500_000 #how many steps are simulated
 dt_simulation = 1e-8 #simulation time step
@@ -52,7 +52,7 @@ v_gauss = np.sqrt(kB*T0/mass_particle)
 
 #simulation parameters
 pos0 = np.array((x_gauss,y_gauss,z_gauss))
-vel0 = np.array((v_gauss,v_gauss,v_gauss))
+vel0 = np.array((0,0,0))
 
 @njit(fastmath=True)
 def ode_x(x,v_x):
@@ -145,57 +145,3 @@ def rungeKutta(pos0,vel0,dt_sim,tMax):
 
 #simulate the system!
 positions, velocities = rungeKutta(pos0,vel0,dt_simulation,tMax)
-
-pos_x = positions[0,:-1]
-
-A_l = 1
-A_s = 0.001
-noise = 0.00*np.std(pos_x)
-phase = 0.0*np.pi/2
-
-i_1 = A_l**2/4 + A_s**2/4 - A_l*A_s*np.sin(pos_x+np.pi/2)+noise*np.random.uniform(size=len(pos_x))
-i_2 = A_l**2/4 + A_s**2/4 + A_l*A_s*np.sin(pos_x+np.pi/2)+noise*np.random.uniform(size=len(pos_x))
-i_3 = i_1-i_2
-
-windows = 5
-f_i3, PSD = signal.welch(i_3, 1/dt_simulation, window = 'hamming', nperseg = int(len(i_3)/windows))
-
-plt.semilogy(f_i3,PSD)
-
-i_1 = A_l**2/4 + A_s**2/4 - A_l*A_s*np.sin(pos_x)+noise*np.random.uniform(size=len(pos_x))
-i_2 = A_l**2/4 + A_s**2/4 + A_l*A_s*np.sin(pos_x)+noise*np.random.uniform(size=len(pos_x))
-i_3 = i_1-i_2
-
-windows = 5
-f_i3, PSD = signal.welch(i_3, 1/dt_simulation, window = 'hamming', nperseg = int(len(i_3)/windows))
-
-plt.semilogy(f_i3,PSD)
-
-
-
-windows = 5
-f, power_x = signal.welch(pos_x, 1/dt_simulation, window = 'hamming', scaling='density',nperseg = int(N/windows),return_onesided=True)
-
-plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "Times New Roman",
-    'font.size': 10
-})
-
-fig = plt.figure(constrained_layout=True)
-gs = fig.add_gridspec(1, 1)
-(ax) = gs.subplots()
-ax.plot(f/1000000,power_x*1e18,label = r"simulation")
-ax.set_xscale('linear')
-ax.set_yscale('log')
-ax.set(ylabel=r"$S_{xx}$ "+r"$[nm^2$/Hz]")
-ax.set(xlabel=r'$\omega/2\pi$ [MHz]')
-ax.grid(alpha = 0.4)
-#ax.text(0.14,5e-19,s = 'c)', c = 'k')
-#ax.legend(loc="upper right",fontsize = 10)
-# ax.set_xlim([0, 2])
-# ax.set_ylim([1e-12, 1e-0])
-
-# plt.gcf().set_size_inches(2.235,2.25)
-
-# plt.savefig("PSD_labFrameDetail_taylor.pdf", format="pdf", bbox_inches="tight")
