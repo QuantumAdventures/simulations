@@ -5,25 +5,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numba import njit
 import scipy.signal as signal
+from scipy.integrate import simpson
 
-radius = 70e-9
+radius = 75e-9
 kB = 1.380649e-23
-T0 = 293
+T0 = 297
 rho_SiO2 = 1850 # https://www.azom.com/properties.aspx?ArticleID=1387
 eta_air = 18.27e-6 # Pa # (J.T.R.Watson (1995)).
 d_gas = 0.372e-9 #m #(Sone (2007)), ρSiO2
-pressure = 1e-1 #mbar
+pressure = 1 #mbar
 #Define the time-step of the numerical integration and the max. time of integration
 N = 500_000 #how many steps are simulated
 dt_simulation = 1e-8 #simulation time step
 tMax = N*dt_simulation
 t = np.linspace(0,tMax,N)
 
+n_particle = 1.42 #https://microparticles.de/eigenschaften
+e0 = 8.85e-12
+c = 3e8
+wl = 1550e-9
+k = 2*np.pi/wl
+w0 = 0.5e-6
+zr = np.pi*w0**2/wl
+P = 0.8
+
 V = 4*np.pi*radius**3/3
 mass_particle = (4/3)*np.pi*radius**3*rho_SiO2
+e_r = n_particle**2
+alpha_cm = 3*V*e0*(e_r-1)/(e_r+2)
+alpha_rad = alpha_cm/(1-((e_r-1)/(e_r+2))*((k*radius)**2 + 2j/3*(k*radius)**3))
 
-w_x = 2*np.pi*100_000
-w_y = 2*np.pi*100_000
+w_x = 2*np.pi*150_000
+w_y = 2*np.pi*180_000
 w_z = 2*np.pi*50_000
 
 def Gamma_env(Pressure_mbar):
@@ -73,8 +86,10 @@ def ode_y(y,v_y):
 @njit(fastmath=True)
 def ode_z(z,v_z):
     
+    Fs = 16*P*np.pi**2*np.abs(alpha_rad)**2/(3*wl**4*e0**2*c*w0**2*(1+z**2/zr**2))
+    
     ode_1 = v_z
-    ode_2 = -w_z**2*z -gamma*v_z
+    ode_2 = -w_z**2*z -gamma*v_z + Fs/mass_particle
 
     return np.array((ode_1,ode_2))
 
@@ -122,17 +137,17 @@ def rungeKuttaStep(pos,vel,dt):
 
 #The next funcion applies the Runge-Kutta method the desired time interval
 @njit(fastmath=True)
-def rungeKutta(pos0,vel0,dt_sim,tMax):
+def rungeKutta(pos0,vel0,dt,steps):
     
-    posSim = np.zeros((3,int(tMax/dt_sim)+1))
-    velSim = np.zeros((3,int(tMax/dt_sim)+1))
+    posSim = np.zeros((3,steps))
+    velSim = np.zeros((3,steps))
                       
     posSim[:,0] = pos0
     velSim[:,0] = vel0
     
-    for i in range(1,int(tMax/dt_sim)):
+    for i in range(1,steps):
         
-        newPos, newVel = rungeKuttaStep(posSim[:,i-1],velSim[:,i-1],dt_sim)
+        newPos, newVel = rungeKuttaStep(posSim[:,i-1],velSim[:,i-1],dt)
         posSim[0,i] = newPos[0]
         posSim[1,i] = newPos[1]
         posSim[2,i] = newPos[2]
@@ -144,4 +159,4 @@ def rungeKutta(pos0,vel0,dt_sim,tMax):
     return posSim, velSim
 
 #simulate the system!
-positions, velocities = rungeKutta(pos0,vel0,dt_simulation,tMax)
+positions, velocities = rungeKutta(pos0,vel0,dt_simulation,N)
